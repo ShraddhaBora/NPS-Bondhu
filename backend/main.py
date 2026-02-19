@@ -5,7 +5,22 @@ import os
 from src.rag_chain import get_rag_chain_with_sources, get_sources_from_query, format_sources_for_display
 from src.translator import translate_to_english, translate_from_english
 
-app = FastAPI()
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Load the ML model and vector store on startup
+    print("Loading AI Models...")
+    try:
+        # This will trigger the cached loading of embeddings and FAISS index
+        get_rag_chain_with_sources()
+        print("AI Models loaded successfully!")
+    except Exception as e:
+        print(f"Error loading models: {e}")
+    yield
+    # Clean up resources if needed (none for now)
+
+app = FastAPI(lifespan=lifespan)
 
 # Enable CORS
 app.add_middleware(
