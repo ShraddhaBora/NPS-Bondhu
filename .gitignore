@@ -30,10 +30,10 @@ venv/
 ENV/
 env/
 
-# Vector Store (large binary files - regenerate with ingest.py)
-vector_store/
-*.faiss
-*.pkl
+# Vector Store (large binary files - regenerate with ingest.py - but we check in for deployment)
+# vector_store/
+# *.faiss
+# *.pkl
 
 # Backups
 .backups/
