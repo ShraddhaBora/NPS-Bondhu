@@ -2,7 +2,6 @@ import os
 from langchain_community.vectorstores import FAISS
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_groq import ChatGroq
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
@@ -91,33 +90,24 @@ def get_optimized_retriever(search_type="mmr"):
 def get_llm(streaming=False):
     """
     Get LLM with optional streaming support.
-    Tries Groq first, falls back to Google Gemini.
+    Uses Groq (Llama 3.3 70B) exclusively.
     """
     groq_api_key = os.getenv("GROQ_API_KEY")
-    google_api_key = os.getenv("GOOGLE_API_KEY")
     
-    if groq_api_key:
-        # Use Groq (Llama 3.3 70B - fast and powerful)
-        llm = ChatGroq(
-            model="llama-3.3-70b-versatile",
-            groq_api_key=groq_api_key,
-            temperature=0.1,
-            streaming=streaming
+    if not groq_api_key:
+        raise ValueError(
+            "GROQ_API_KEY environment variable is not set. "
+            "Add it as a Secret in your HuggingFace Space settings."
         )
-        if not streaming:
-            print("✅ Using Groq LLM (Llama 3.3 70B)")
-    elif google_api_key:
-        # Fallback to Google Gemini
-        llm = ChatGoogleGenerativeAI(
-            model="gemini-pro-latest",
-            google_api_key=google_api_key,
-            temperature=0.1,
-            streaming=streaming
-        )
-        if not streaming:
-            print("✅ Using Google Gemini LLM")
-    else:
-        raise ValueError("No API key found. Please set GROQ_API_KEY or GOOGLE_API_KEY in .env file.")
+    
+    llm = ChatGroq(
+        model="llama-3.3-70b-versatile",
+        groq_api_key=groq_api_key,
+        temperature=0.1,
+        streaming=streaming
+    )
+    if not streaming:
+        print("✅ Using Groq LLM (Llama 3.3 70B)")
     
     return llm
 
