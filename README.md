@@ -1,84 +1,137 @@
-# 🇮🇳 NPS Bondhu - Production Version
+# 🇮🇳 NPS Bondhu
 
 **Your AI-Powered Guide to the National Pension System**
+
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-npsbondhu.vercel.app-blue?style=flat-square)](https://npsbondhu.vercel.app)
+[![Backend](https://img.shields.io/badge/Backend-HuggingFace%20Spaces-yellow?style=flat-square)](https://huggingface.co/spaces/NilimKr/nps-bondhu-backend)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 
 ---
 
 ## 🎯 What is NPS Bondhu?
 
-NPS Bondhu is an intelligent virtual assistant that helps NPS (National Pension System) subscribers understand pension rules, calculate retirement corpus, and get accurate answers from official PFRDA documents.
+NPS Bondhu is an intelligent virtual assistant that helps NPS (National Pension System) subscribers understand pension rules, calculate retirement corpus, and get accurate answers sourced directly from official PFRDA documents.
 
-### Key Features:
-- ✅ **AI-Powered Q&A** - Ask questions in natural language
-- ✅ **Multilingual Support** - English, Hindi (हिन्दी), Assamese (অসমীয়া)
-- ✅ **Source Citations** - Every answer includes source references
-- ✅ **Pension Calculator** - Estimate your retirement corpus
-- ✅ **Official Documents** - Powered by official NPS PDFs & FAQs
-- ✅ **Automated Data Scraping** - Keeps knowledge base up-to-date with PFRDA website
+### Key Features
+- ✅ **AI-Powered Q&A** — Ask questions in natural language, get answers from official docs
+- ✅ **Multilingual Support** — English, Hindi (हिन्दी), Assamese (অসমীয়া)
+- ✅ **Source Citations** — Every answer includes the source document name
+- ✅ **Pension Calculator** — Estimate your retirement corpus
+- ✅ **Voice Input** — Speak your questions in any supported language
+- ✅ **Official Documents** — Powered by PFRDA/NPS Trust PDFs and FAQs
 
 ---
 
-## 🚀 Quick Start
+## 🏗️ Architecture
 
-### 1. Install Dependencies
+```
+User Browser
+    │
+    ▼
+Frontend (Vercel)               ← React + Vite + TailwindCSS
+    │  HTTPS POST /chat
+    ▼
+Backend (HuggingFace Spaces)    ← FastAPI + Gunicorn (Docker)
+    │
+    ├── Translator              ← deep-translator (Google Translate)
+    ├── FAISS Vector Store      ← Pre-built from official NPS PDFs
+    ├── HuggingFace Embeddings  ← sentence-transformers/all-MiniLM-L6-v2
+    └── Groq LLM                ← Llama 3.3 70B (via Groq API)
+```
+
+### RAG Pipeline
+1. User query → translated to English (if Hindi/Assamese)
+2. Query embedded → FAISS MMR search → top 5 relevant chunks retrieved
+3. Chunks + query → Groq (Llama 3.3 70B) → answer generated
+4. Answer → translated back to user's language
+5. Response returned with source document name
+
+---
+
+## 🚀 Production Deployment
+
+| Component | Platform | URL |
+|---|---|---|
+| Frontend | Vercel | https://npsbondhu.vercel.app |
+| Backend | HuggingFace Spaces | https://NilimKr-nps-bondhu-backend.hf.space |
+
+### Deploying the Backend (HuggingFace Spaces)
+
+1. **Create a Space** at [huggingface.co/new-space](https://huggingface.co/new-space)
+   - SDK: **Docker**
+   - Name: `nps-bondhu-backend`
+
+2. **Upload files** using the HF API:
+   ```bash
+   python3 scripts/upload_to_hf.py
+   ```
+
+3. **Add Secret** in Space Settings → Variables and Secrets:
+   - `GROQ_API_KEY` = your key from [console.groq.com](https://console.groq.com)
+
+### Deploying the Frontend (Vercel)
+
+1. Connect the GitHub repo to Vercel
+2. Set **Root Directory** to `frontend/`
+3. The `frontend/.env.production` file already contains the backend URL — no extra env vars needed
+4. Deploy
+
+---
+
+## 💻 Local Development
+
+### Prerequisites
+- Python 3.10+
+- Node.js 18+
+- A Groq API key (free at [console.groq.com](https://console.groq.com))
+
+### 1. Clone & Install
+
 ```bash
+git clone https://github.com/NilimKr/NPS-Bondhu.git
+cd "NPS Bondhu"
+
+# Backend dependencies
 pip install -r requirements.txt
+
+# Frontend dependencies
+cd frontend && npm install && cd ..
 ```
 
-### 2. Set Up API Keys
-Create a `.env` file with your API key:
+### 2. Configure Environment
+
+Create a `.env` file in the project root:
 ```bash
-# Use either Groq (recommended for speed) or Google Gemini
 GROQ_API_KEY=your_groq_api_key_here
-# OR
-GOOGLE_API_KEY=your_google_api_key_here
 ```
 
-### 3. Scrape & Ingest Documents (First Time or Updates)
-To get the latest official documents and build the knowledge base:
+Create `frontend/.env` for local development:
+```bash
+VITE_API_BASE_URL=http://127.0.0.1:8000
+```
+
+### 3. Run Locally
 
 ```bash
-# 1. Scrape latest data from NPS Trust/PFRDA
+# Terminal 1 — Backend
+uvicorn backend.main:app --reload --port 8000
+
+# Terminal 2 — Frontend
+cd frontend && npm run dev
+```
+
+App available at **http://localhost:5173**
+
+### 4. Rebuild Vector Store (optional)
+
+Only needed if you want to update the knowledge base with fresh documents:
+```bash
+# Scrape latest data from PFRDA/NPS Trust
 python3 scripts/scrape_nps_data.py
 
-# 2. Ingest documents into vector store
+# Re-ingest documents into FAISS vector store
 python3 src/ingest.py
 ```
-This downloads PDFs and FAQs from official sources into `data/` and creates the vector store.
-
-### 4. Run the App
-**Frontend (React):**
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-**Backend (FastAPI):**
-```bash
-uvicorn backend.main:app --reload --port 8000
-```
-
-The app will be available at `http://localhost:5173`
-
----
-
-## 📊 System Architecture
-
-### RAG Pipeline:
-1. **Data Acquisition** - Automated scrapers fetch PDFs & FAQs from PFRDA/NPS Trust
-2. **Document Ingestion** - PDFs/Text → Chunks (800 chars)
-3. **Embedding** - Text → Vectors (sentence-transformers)
-4. **Vector Store** - FAISS index for fast retrieval
-5. **Retrieval** - MMR search for diverse, relevant chunks
-6. **Generation** - LLM generates answer with source citations
-
-### Optimizations:
-- ✅ **Unified Ingestion**: Handles both PDFs and text files recursively
-- ✅ **Automated Scraping**: Keeps data fresh without manual upload
-- ✅ **Hybrid Content**: Integrates both formal circulars and user-friendly FAQs
-- ✅ **MMR search**: For diverse, non-redundant results
-- ✅ **Source citations**: For transparency
 
 ---
 
@@ -86,89 +139,89 @@ The app will be available at `http://localhost:5173`
 
 ```
 NPS Bondhu/
-├── backend/                    # FastAPI Backend
-│   └── main.py                
-├── frontend/                   # React Frontend
-├── data/                       # Data storage
-│   ├── scraped_pdfs/          # Downloaded PDF documents
-│   └── scraped_text/          # Scraped text content (FAQs)
-├── vector_store/               # FAISS index (generated)
-├── scripts/
-│   └── scrape_nps_data.py     # Automated data scraper
+├── backend/
+│   └── main.py                # FastAPI app (CORS, /chat, /health endpoints)
+├── frontend/                  # React + Vite frontend
+│   ├── src/
+│   │   └── components/
+│   │       ├── ChatInterface.jsx
+│   │       ├── MessageBubble.jsx
+│   │       ├── Sidebar.jsx
+│   │       └── MobileHeader.jsx
+│   └── .env.production        # Production backend URL (committed)
 ├── src/
-│   ├── ingest.py              # Document processing pipeline
-│   ├── rag_chain.py           # RAG implementation
-│   └── calculator.py          # Pension calculator
-├── requirements.txt            # Python dependencies
-└── README.md                   # This file
+│   ├── rag_chain.py           # RAG chain (retriever + Groq LLM)
+│   ├── translator.py          # Multilingual translation utilities
+│   ├── calculator.py          # Pension calculator logic
+│   ├── ingest.py              # Document ingestion pipeline
+│   └── download_model.py      # Pre-downloads embedding model at build
+├── vector_store/              # Pre-built FAISS index (committed)
+│   ├── index.faiss
+│   └── index.pkl
+├── data/                      # Raw source documents
+├── scripts/
+│   ├── scrape_nps_data.py     # PFRDA/NPS Trust web scraper
+│   └── upload_to_hf.py        # HuggingFace Space upload utility
+├── Dockerfile                 # For HuggingFace Spaces (port 7860)
+├── requirements.txt
+└── README.md
 ```
 
 ---
 
 ## 📚 Data Sources
 
-The system automatically scrapes and indexes:
-1.  **Circulars** from NPS Trust
-2.  **Acts & Regulations** from NPS Trust
-3.  **FAQs** (Text & PDFs) from NPS Trust
-4.  **Official Gazettes**
-
-**Total Knowledge Base:** Dynamically updated from official sources.
-
----
-
-## 🎛️ Features
-
-### 1. Ask Bondhu (Chat Interface)
-- Natural language Q&A
-- Streaming responses
-- Source citations with every answer
-- Configurable search strategies (MMR/Similarity/Threshold)
-
-### 2. Pension Calculator
-- Estimate retirement corpus
-- Calculate lumpsum withdrawal (60%)
-- Calculate annuity corpus (40%)
-- Estimate monthly pension
-
-### 3. 🌍 Multilingual Support
-- **Languages:** English, Hindi (हिन्दी), Assamese (অসমীয়া)
-- **Auto-Translation:** Queries are translated to English for processing, then answers are translated back
-- **UI Localization:** Interface elements adapt to selected language
+Official documents indexed from:
+- PFRDA/NPS Trust **Circulars**
+- **FAQs** (Central Govt, State Govt, All-Citizens, NRI, Corporate models)
+- **Exit & Withdrawal** guides
+- **APY** (Atal Pension Yojana) documents
+- **NPS Vatsalya** scheme guidelines
+- Gazette notifications and regulatory amendments
 
 ---
 
-## 📝 API Keys
+## 🔑 API Keys
 
-### Groq (Recommended)
-- **Speed:** Very fast (Llama 3.3 70B)
-- **Free tier:** Generous limits
-- **Get key:** https://console.groq.com
+### Groq (Required)
+- **Model:** Llama 3.3 70B Versatile
+- **Speed:** Very fast (~1–3s response)
+- **Free tier:** Generous daily limits
+- **Get key:** [console.groq.com](https://console.groq.com)
 
-### Google Gemini (Fallback)
-- **Speed:** Good
-- **Free tier:** Available
-- **Get key:** https://makersuite.google.com/app/apikey
+---
+
+## 🛠️ Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | React 18, Vite, TailwindCSS, Framer Motion |
+| Backend | FastAPI, Gunicorn, Uvicorn |
+| LLM | Groq (Llama 3.3 70B) via LangChain |
+| Embeddings | sentence-transformers/all-MiniLM-L6-v2 |
+| Vector Store | FAISS (MMR search) |
+| Translation | deep-translator (Google Translate) |
+| Hosting | Vercel (frontend) + HuggingFace Spaces (backend) |
 
 ---
 
 ## 📄 License
 
-This is a prototype/demo application. Official NPS information should always be verified with PFRDA.
+MIT License — see [LICENSE](LICENSE) for details.
+
+> ⚠️ This is a prototype/demo. Always verify NPS information with official PFRDA sources.
 
 ---
 
 ## 🙏 Acknowledgments
 
 - **PFRDA/NPS Trust** for official NPS documents
-- **LangChain** for RAG framework
-- **FastAPI & React** for full-stack architecture
-- **Groq/Google** for LLM APIs
-- **Sentence Transformers** for embeddings
+- **LangChain** for the RAG framework
+- **Groq** for fast LLM inference
+- **HuggingFace** for free ML hosting
+- **Vercel** for frontend hosting
 
 ---
 
 **Built with ❤️ for NPS subscribers**
-
-**Version:** 3.0 (Full Stack & Automated Data)  
-**Last Updated:** February 19, 2026
+**Version:** 3.1 | **Last Updated:** February 2026
