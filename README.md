@@ -15,9 +15,8 @@ NPS Bondhu is an intelligent virtual assistant that helps NPS (National Pension 
 ### Key Features
 - ✅ **AI-Powered Q&A** — Ask questions in natural language, get answers from official docs
 - ✅ **Multilingual Support** — English, Hindi (हिन्दी), Assamese (অসমীয়া)
-- ✅ **Source Citations** — Every answer includes the source document name
-- ✅ **Pension Calculator** — Estimate your retirement corpus
-- ✅ **Voice Input** — Speak your questions in any supported language
+- ✅ **Source Citations** — Every answer includes the source document name, mapped directly from FAISS metadata
+- ✅ **Voice Input** — Speak your questions directly via the browser's native Web Speech API
 - ✅ **Official Documents** — Powered by PFRDA/NPS Trust PDFs and FAQs
 
 ---
@@ -39,12 +38,12 @@ Backend (HuggingFace Spaces)    ← FastAPI + Gunicorn (Docker)
     └── Groq LLM                ← Llama 3.3 70B (via Groq API)
 ```
 
-### RAG Pipeline
-1. User query → translated to English (if Hindi/Assamese)
-2. Query embedded → FAISS MMR search → top 5 relevant chunks retrieved
-3. Chunks + query → Groq (Llama 3.3 70B) → answer generated
-4. Answer → translated back to user's language
-5. Response returned with source document name
+### RAG Pipeline & Technical Implementation
+1. **Voice & Query Processing:** Use `window.SpeechRecognition` (Web Speech API) to capture voice in BCP-47 tags (`en-IN`, `hi-IN`, `as-IN`). The text query is then translated to English (if needed) using `deep-translator`.
+2. **Retrieval:** The query is embedded. FAISS runs an MMR (Maximal Marginal Relevance) search retrieving the top 5 diverse chunks.
+3. **Citation & Metadata Storage:** During ingestion (`ingest.py`), each text chunk is saved with a `metadata` dictionary containing `source` (the original filename) and `page` number.
+4. **Generation:** The retrieved chunks + query are passed to Groq (Llama 3.3 70B) to generate the answer.
+5. **Citation Rendering Method:** The backend extracts the `source` metadata from the primary document retrieved. It strips the `.pdf` extension and replaces underscores/hyphens with spaces to generate a clean, human-readable citation (e.g., "07 Corp FAQ"). The final response and citation are sent to the frontend.
 
 ---
 
@@ -152,8 +151,7 @@ NPS Bondhu/
 ├── src/
 │   ├── rag_chain.py           # RAG chain (retriever + Groq LLM)
 │   ├── translator.py          # Multilingual translation utilities
-│   ├── calculator.py          # Pension calculator logic
-│   ├── ingest.py              # Document ingestion pipeline
+│   ├── ingest.py              # Document ingestion pipeline (handles chunk metadata)
 │   └── download_model.py      # Pre-downloads embedding model at build
 ├── vector_store/              # Pre-built FAISS index (committed)
 │   ├── index.faiss
