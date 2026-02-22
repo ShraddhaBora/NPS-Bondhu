@@ -14,7 +14,9 @@ app.add_middleware(
         "https://npsbondhu.vercel.app",
         "http://localhost:5173",
         "http://127.0.0.1:5173",
-        "http://localhost:3000"
+        "http://localhost:3000",
+        # HuggingFace Space URL
+        "https://NilimKr-nps-bondhu-backend.hf.space",
     ],
     allow_credentials=True,
     allow_methods=["*"],
