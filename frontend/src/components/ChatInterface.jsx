@@ -168,11 +168,19 @@ const ChatInterface = ({ language }) => {
             setMessages((prev) => [...prev, botMessage]);
         } catch (error) {
             console.error('Error:', error);
-            const errMsgs = {
-                en: 'Sorry, I encountered an error. Please check that the backend server is running and try again.',
-                hi: 'क्षमा करें, एक त्रुटि हुई। कृपया जांचें कि बैकएंड सर्वर चल रहा है।',
-                as: 'দুঃখিত, এটা ত্ৰুটি হৈছে। বেকেণ্ড চাৰ্ভাৰ চলি আছে নে নাই পৰীক্ষা কৰক।',
-            };
+            // Check if it's a timeout / network error (Render free tier cold start)
+            const isTimeout = error.code === 'ECONNABORTED' || error.message?.includes('timeout') || error.message?.includes('Network Error');
+            const errMsgs = isTimeout
+                ? {
+                    en: 'The server is waking up — this can take 30–60 seconds on the first request. Please try again in a moment!',
+                    hi: 'सर्वर जाग रहा है — पहले अनुरोध में 30-60 सेकंड लग सकते हैं। कृपया थोड़ी देर में पुनः प्रयास करें!',
+                    as: 'চাৰ্ভাৰটো জাগি উঠিছে — প্ৰথম অনুৰোধত ৩০–৬০ ছেকেণ্ড লাগিব পাৰে। অনুগ্ৰহ কৰি অলপ পিছত পুনৰাই চেষ্টা কৰক!',
+                }
+                : {
+                    en: 'Sorry, I encountered an error. Please try again.',
+                    hi: 'क्षमा करें, एक त्रुटि हुई। कृपया पुनः प्रयास करें।',
+                    as: 'দুঃখিত, এটা ত্ৰুটি হৈছে। অনুগ্ৰহ কৰি পুনৰাই চেষ্টা কৰক।',
+                };
             setMessages((prev) => [
                 ...prev,
                 { role: 'assistant', content: errMsgs[language] || errMsgs['en'], isError: true, timestamp: new Date() },
