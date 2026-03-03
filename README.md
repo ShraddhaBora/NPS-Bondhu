@@ -211,7 +211,7 @@ MIT License — see [LICENSE](LICENSE) for details.
 
 ---
 
-## 🙏 Acknowledgments
+##  Acknowledgments
 
 - **PFRDA/NPS Trust** for official NPS documents
 - **LangChain** for the RAG framework
