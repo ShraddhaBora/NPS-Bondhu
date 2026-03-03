@@ -8,7 +8,7 @@
 
 ---
 
-## 🎯 What is NPS Bondhu?
+##  What is NPS Bondhu?
 
 NPS Bondhu is an intelligent virtual assistant that helps NPS (National Pension System) subscribers understand pension rules, calculate retirement corpus, and get accurate answers sourced directly from official PFRDA documents.
 
