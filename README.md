@@ -1,4 +1,4 @@
-# 🇮🇳 NPS Bondhu
+# NPS Bondhu
 
 **Your AI-Powered Guide to the National Pension System**
 
@@ -8,218 +8,232 @@
 
 ---
 
-##  What is NPS Bondhu?
+## What is NPS Bondhu?
 
-NPS Bondhu is an intelligent virtual assistant that helps NPS (National Pension System) subscribers understand pension rules, calculate retirement corpus, and get accurate answers sourced directly from official PFRDA documents.
+Navigating the rules and details of the National Pension System (NPS) can often feel overwhelming. NPS Bondhu is designed to simplify this experience. It acts as your intelligent, AI-driven guide, built specifically to answer your questions, clarify pension regulations, and help you understand your retirement planning options.
 
-### Key Features
-- ✅ **AI-Powered Q&A** — Ask questions in natural language, get answers from official docs
-- ✅ **Multilingual Support** — English, Hindi (हिन्दी), Assamese (অসমীয়া)
-- ✅ **Source Citations** — Every answer includes the source document name, mapped directly from FAISS metadata
-- ✅ **Voice Input** — Speak your questions directly via the browser's native Web Speech API
-- ✅ **Official Documents** — Powered by PFRDA/NPS Trust PDFs and FAQs
+Rather than manually searching through lengthy official documents, you can ask NPS Bondhu your questions directly. The system searches through official materials from the Pension Fund Regulatory and Development Authority (PFRDA) to provide you with accurate, easy-to-understand answers backed by real citations.
 
----
+### Core Features
 
-## 🏗️ Architecture
-
-```
-User Browser
-    │
-    ▼
-Frontend (Vercel)               ← React + Vite + TailwindCSS
-    │  HTTPS POST /chat
-    ▼
-Backend (HuggingFace Spaces)    ← FastAPI + Gunicorn (Docker)
-    │
-    ├── Translator              ← deep-translator (Google Translate)
-    ├── FAISS Vector Store      ← Pre-built from official NPS PDFs
-    ├── HuggingFace Embeddings  ← sentence-transformers/all-MiniLM-L6-v2
-    └── Groq LLM                ← Llama 3.3 70B (via Groq API)
-```
-
-### RAG Pipeline & Technical Implementation
-1. **Voice & Query Processing:** Use `window.SpeechRecognition` (Web Speech API) to capture voice in BCP-47 tags (`en-IN`, `hi-IN`, `as-IN`). The text query is then translated to English (if needed) using `deep-translator`.
-2. **Retrieval:** The query is embedded. FAISS runs an MMR (Maximal Marginal Relevance) search retrieving the top 5 diverse chunks.
-3. **Citation & Metadata Storage:** During ingestion (`ingest.py`), each text chunk is saved with a `metadata` dictionary containing `source` (the original filename) and `page` number.
-4. **Generation:** The retrieved chunks + query are passed to Groq (Llama 3.3 70B) to generate the answer.
-5. **Citation Rendering Method:** The backend extracts the `source` metadata from the primary document retrieved. It strips the `.pdf` extension and replaces underscores/hyphens with spaces to generate a clean, human-readable citation (e.g., "07 Corp FAQ"). The final response and citation are sent to the frontend.
+- **AI-Powered Q&A:** Ask complex questions in natural language and receive clear, contextual answers sourced from official documents.
+- **Multilingual Support:** Accessible in English, Hindi (हिन्दी), and Assamese (অসমীয়া) to serve a diverse user base.
+- **Source Citations:** To ensure trust and verify information, every answer includes a direct reference to the specific document it was retrieved from.
+- **Voice Interactions:** For a more natural experience, seamlessly ask questions using your voice via the browser's native Web Speech API.
+- **Reliable Knowledge Base:** Operates strictly on a curated database of official PFRDA and NPS Trust circulars, guidelines, and FAQs.
 
 ---
 
-## 🚀 Production Deployment
+## Technical Architecture
 
-| Component | Platform | URL |
-|---|---|---|
-| Frontend | Vercel | https://npsbondhu.vercel.app |
-| Backend | HuggingFace Spaces | https://NilimKr-nps-bondhu-backend.hf.space |
+The application is built on a modern, decoupled architecture designed for speed and accuracy. 
+
+```mermaid
+graph TD
+    User([User Browser]) -->|Voice / Text Query| Frontend[Frontend: Vercel]
+    
+    subgraph Client [React + Vite + TailwindCSS]
+        Frontend
+    end
+
+    Frontend -->|HTTPS POST| Backend{Backend: FastAPI}
+    
+    subgraph Server [HuggingFace Spaces Docker]
+        Backend -->|Non-English?| Trans[Deep-translator]
+        Trans -.-> Backend
+        
+        Backend -->|Fetch Embeddings| Embed[all-MiniLM-L6-v2]
+        Embed -->|MMR Search| Vector[(FAISS Vector Store)]
+        Vector -->|Return Source Context| Backend
+        
+        Backend -->|Combine Query + Context| LLM((Groq LLM: Llama 3.3))
+        LLM -->|Generate Precise Answer| Backend
+    end
+    
+    Backend -->|Respond with Text & Citations| Frontend
+```
+
+### Retrieval-Augmented Generation (RAG) Pipeline
+
+1. **Query Processing:** We capture user input either through text or via voice using the Web Speech API in specific locales (en-IN, hi-IN, as-IN). If the query is not in English, it is translated on the fly using `deep-translator`.
+2. **Context Retrieval:** The synthesized query is converted into embeddings. We use a FAISS index to run a Maximal Marginal Relevance (MMR) search, which retrieves the most relevant and diverse text chunks from our pre-processed document database.
+3. **Citation Management:** During the initial data ingestion phase, every text chunk is paired with metadata specifying its source file and page location. 
+4. **Response Generation:** The retrieved context, combined with the original query, is fed into the Llama 3.3 70B model via the fast Groq inference API to generate a precise answer.
+5. **Presentation:** The backend formats the citation cleanly by processing the metadata before sending the final textual response back to the frontend to be displayed to the user.
+
+---
+
+## Production Deployment
+
+| Component | Hosting Platform     | Live URL |
+|-----------|----------------------|----------|
+| Frontend  | Vercel               | https://npsbondhu.vercel.app |
+| Backend   | HuggingFace Spaces   | https://NilimKr-nps-bondhu-backend.hf.space |
 
 ### Deploying the Backend (HuggingFace Spaces)
 
-1. **Create a Space** at [huggingface.co/new-space](https://huggingface.co/new-space)
-   - SDK: **Docker**
-   - Name: `nps-bondhu-backend`
-
-2. **Upload files** using the HF API:
+1. Create a new Space at huggingface.co/new-space
+   - **Environment:** Docker
+   - **Name:** `nps-bondhu-backend`
+2. Upload the necessary backend files using the provided utility scripts:
    ```bash
    python3 scripts/upload_to_hf.py
    ```
-
-3. **Add Secret** in Space Settings → Variables and Secrets:
-   - `GROQ_API_KEY` = your key from [console.groq.com](https://console.groq.com)
+3. Secure your environment by adding your `GROQ_API_KEY` (obtainable from console.groq.com) into the Space's Settings under Variables and Secrets.
 
 ### Deploying the Frontend (Vercel)
 
-1. Connect the GitHub repo to Vercel
-2. Set **Root Directory** to `frontend/`
-3. The `frontend/.env.production` file already contains the backend URL — no extra env vars needed
-4. Deploy
+1. Import the GitHub repository into your Vercel account.
+2. Set the Root Directory to `frontend/`.
+3. The application is pre-configured; `frontend/.env.production` already contains the correct backend endpoints.
+4. Deploy the application.
 
 ---
 
-## 💻 Local Development
+## Local Development Guide
 
 ### Prerequisites
-- Python 3.10+
-- Node.js 18+
-- A Groq API key (free at [console.groq.com](https://console.groq.com))
+- Python 3.10 or higher
+- Node.js 18 or higher
+- A Groq API key (available for free at console.groq.com)
 
-### 1. Clone & Install
+### 1. Clone and Install Dependencies
 
 ```bash
 git clone https://github.com/NilimKr/NPS-Bondhu.git
-cd "NPS Bondhu"
+cd "NPS-Bondhu"
 
-# Backend dependencies
+# Install backend dependencies
 pip install -r requirements.txt
 
-# Frontend dependencies
+# Install frontend dependencies
 cd frontend && npm install && cd ..
 ```
 
-### 2. Configure Environment
+### 2. Configure Environment Variables
 
-Create a `.env` file in the project root:
+Create a `.env` file in the project's root directory for the backend API key:
 ```bash
 GROQ_API_KEY=your_groq_api_key_here
 ```
 
-Create `frontend/.env` for local development:
+Create a `.env` file inside the `frontend/` directory to configure the local development server:
 ```bash
 VITE_API_BASE_URL=http://127.0.0.1:8000
 ```
 
-### 3. Run Locally
+### 3. Run the Servers
 
+Start the backend API server:
 ```bash
-# Terminal 1 — Backend
 uvicorn backend.main:app --reload --port 8000
+```
 
-# Terminal 2 — Frontend
+In a separate terminal, start the frontend application:
+```bash
 cd frontend && npm run dev
 ```
 
-App available at **http://localhost:5173**
+You can now view the app by navigating to **http://localhost:5173** in your browser.
 
-### 4. Rebuild Vector Store (optional)
+### 4. Updating the Knowledge Base (Optional)
 
-Only needed if you want to update the knowledge base with fresh documents:
+If you need to update the application with the latest guidelines or circulars:
 ```bash
-# Scrape latest data from PFRDA/NPS Trust
+# Refetch the latest documents directly from PFRDA and NPS Trust
 python3 scripts/scrape_nps_data.py
 
-# Re-ingest documents into FAISS vector store
+# Recreate the FAISS vector index with the new documents
 python3 src/ingest.py
 ```
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
-```
+```text
 NPS Bondhu/
 ├── backend/
-│   └── main.py                # FastAPI app (CORS, /chat, /health endpoints)
-├── frontend/                  # React + Vite frontend
+│   └── main.py                # FastAPI routing and application settings
+├── frontend/                  # React + Vite application
 │   ├── src/
 │   │   └── components/
 │   │       ├── ChatInterface.jsx
 │   │       ├── MessageBubble.jsx
 │   │       ├── Sidebar.jsx
 │   │       └── MobileHeader.jsx
-│   └── .env.production        # Production backend URL (committed)
+│   └── .env.production        # Pre-configured production variables
 ├── src/
-│   ├── rag_chain.py           # RAG chain (retriever + Groq LLM)
-│   ├── translator.py          # Multilingual translation utilities
-│   ├── ingest.py              # Document ingestion pipeline (handles chunk metadata)
-│   └── download_model.py      # Pre-downloads embedding model at build
-├── vector_store/              # Pre-built FAISS index (committed)
+│   ├── rag_chain.py           # Core logic tying retrieval and the LLM
+│   ├── translator.py          # Multilingual handling mechanisms
+│   ├── ingest.py              # Parsing and embedding pipeline for documents
+│   └── download_model.py      # Utility to fetch models at start-up
+├── vector_store/              # Pre-calculated FAISS index for quick setup
 │   ├── index.faiss
 │   └── index.pkl
-├── data/                      # Raw source documents
+├── data/                      # Raw PDF documents used to build the store
 ├── scripts/
-│   ├── scrape_nps_data.py     # PFRDA/NPS Trust web scraper
-│   └── upload_to_hf.py        # HuggingFace Space upload utility
-├── Dockerfile                 # For HuggingFace Spaces (port 7860)
-├── requirements.txt
-└── README.md
+│   ├── scrape_nps_data.py     # Web scraping utility for PFRDA updates
+│   └── upload_to_hf.py        # Helper to push updates to HuggingFace
+├── Dockerfile                 # HuggingFace deployment configuration
+├── requirements.txt           # Python dependency specifications
+└── README.md                  # Project documentation
 ```
 
 ---
 
-## 📚 Data Sources
+## Data Sources
 
-Official documents indexed from:
-- PFRDA/NPS Trust **Circulars**
-- **FAQs** (Central Govt, State Govt, All-Citizens, NRI, Corporate models)
-- **Exit & Withdrawal** guides
-- **APY** (Atal Pension Yojana) documents
-- **NPS Vatsalya** scheme guidelines
-- Gazette notifications and regulatory amendments
-
----
-
-## 🔑 API Keys
-
-### Groq (Required)
-- **Model:** Llama 3.3 70B Versatile
-- **Speed:** Very fast (~1–3s response)
-- **Free tier:** Generous daily limits
-- **Get key:** [console.groq.com](https://console.groq.com)
+The accuracy of NPS Bondhu relies entirely on publicly available, official text, incorporating:
+- PFRDA and NPS Trust Circulars
+- Comprehensive FAQs (spanning Central Govt, State Govt, All-Citizens, NRI, and Corporate sectors)
+- Detailed guides covering Exit & Withdrawal procedures
+- Atal Pension Yojana (APY) scheme documents
+- NPS Vatsalya scheme guidelines
+- General Gazette notifications and official regulatory updates
 
 ---
 
-## 🛠️ Tech Stack
+## API Providers
 
-| Layer | Technology |
-|---|---|
-| Frontend | React 18, Vite, TailwindCSS, Framer Motion |
-| Backend | FastAPI, Gunicorn, Uvicorn |
-| LLM | Groq (Llama 3.3 70B) via LangChain |
-| Embeddings | sentence-transformers/all-MiniLM-L6-v2 |
-| Vector Store | FAISS (MMR search) |
-| Translation | deep-translator (Google Translate) |
-| Hosting | Vercel (frontend) + HuggingFace Spaces (backend) |
+### Groq 
+- **Model Used:** Llama 3.3 70B Versatile
+- **Reasoning:** Selected for its exceptional inference speed, delivering responses in roughly 1 to 3 seconds.
+- **Access:** Create a key at console.groq.com.
 
 ---
 
-## 📄 License
+## Technology Stack
 
-MIT License — see [LICENSE](LICENSE) for details.
+The project relies on a modern array of tools and libraries to function optimally.
 
-> ⚠️ This is a prototype/demo. Always verify NPS information with official PFRDA sources.
-
----
-
-##  Acknowledgments
-
-- **PFRDA/NPS Trust** for official NPS documents
-- **LangChain** for the RAG framework
-- **Groq** for fast LLM inference
-- **HuggingFace** for free ML hosting
-- **Vercel** for frontend hosting
+- **Frontend Interface:** React 18, Vite, TailwindCSS, Framer Motion
+- **Backend API Servers:** FastAPI, Gunicorn, Uvicorn
+- **Language Models:** Groq (Llama 3.3 70B) routed via LangChain
+- **Embeddings Pipeline:** sentence-transformers/all-MiniLM-L6-v2
+- **Vector Storage Approach:** FAISS utilizing Maximal Marginal Relevance (MMR) searches
+- **Translation Services:** deep-translator acting as an interface to Google Translate
+- **Production Hosting Strategy:** Vercel (for frontend properties) complemented by HuggingFace Spaces (for heavy backend compute)
 
 ---
 
-**Built with ❤️ for NPS subscribers**
-**Version:** 3.1 | **Last Updated:** February 2026
+## License
+
+This project is licensed under the MIT License. Please view the [LICENSE](LICENSE) file for the full terms.
+
+> Note: NPS Bondhu is currently a prototype and a demonstrative tool. It is highly recommended to continue verifying critical pension information independently with official PFRDA sources.
+
+---
+
+## Acknowledgments
+
+- **PFRDA/NPS Trust** for continually providing open access to official NPS documentation.
+- **LangChain** for abstracting the complex orchestration of RAG pipelines.
+- **Groq** for their impressive throughput in LLM application architecture.
+- **HuggingFace** for accessible machine learning utility and robust web hosting.
+- **Vercel** for an exceptional and quick frontend development experience.
+
+---
+
+*Built for those seeking clarity on the National Pension System.*
+*System Version: 3.1 | Documentation Revision: March 2026*
